@@ -24,39 +24,34 @@ int main()
     // TESTING START NOW
 
     // WRITE START
-    WriteBuffer out{10};
+    WriteBuffer wbuf{10};
 
-    int length = 256;
-    int packet_id = 0;
+    wbuf.write_varint(256);
+    wbuf.write_string("Hello World");
+    wbuf.write_bytes("Hello World", 11);
 
-    out.write_varint(length);
-    out.write_varint(packet_id);
+    iovec* iov = wbuf.finalize();
 
-    out.write_bytes("Hello World", 11);
-    out.write_bytes("Hello World", 11);
+    writev(write_fd, iov, wbuf.iov_size());
 
-    iovec* iov = out.iov();
-
-    writev(write_fd, iov, out.iov_size());
+    wbuf.reset();
 
     // WRITE END
 
-    writev(1, iov, out.iov_size());
+    writev(1, iov, wbuf.iov_size());
     std::cout << std::endl;
 
-    ssize_t res = read(fds[0], buf, sizeof(buf));
+    ssize_t res = read(read_fd, buf, sizeof(buf));
 
     // READ (parse) START
 
-    ReadBuffer in;
+    ReadBuffer rbuf;
 
-    in.feed(buf, res);
+    rbuf.feed(buf, res);
 
-    length = in.read_varint();
-    packet_id = in.read_varint();
-
-    std::cout << "length: " << length << std::endl;
-    std::cout << "packet_id: " << packet_id << std::endl;
+    std::cout << "length: " << rbuf.read_varint() << std::endl;
+    std::cout << "varint: " << rbuf.read_varint() << std::endl;
+    std::cout << "string: " << rbuf.read_string() << std::endl;
 
     // READ END
 
