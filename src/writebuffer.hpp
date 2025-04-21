@@ -6,6 +6,7 @@
 #define CPPTEST_WRITEBUFFER_HPP
 
 
+#include <string>
 #include <bits/types/struct_iovec.h>
 
 class WriteBuffer
@@ -19,11 +20,15 @@ public:
 
     void write_byte(char x);
 
-    void write_ubyte(unsigned char x);
+    /**
+     * Writes a signed 16-bit little-endian integer (defined for little-endian systems.)
+     */
+    void write_short_le(short x);
 
+    /**
+     * Writes a signed 16-bit big-endian integer (defined for little-endian systems.)
+     */
     void write_short(short x);
-
-    void write_ushort(unsigned short x);
 
     /**
      * Writes a signed 32-bit little-endian integer (defined for little-endian systems.)
@@ -35,21 +40,50 @@ public:
      */
     void write_int(int x);
 
+    void write_long_le(long x);
+
     void write_long(long x);
 
+    void write_float_le(float x);
+
     void write_float(float x);
+
+    void write_double_le(double x);
 
     void write_double(double x);
 
     void write_varint(int x);
 
-    void write_varlong(int x);
+    void write_varlong(long x);
 
-    void write_bytes(char* bytes, int size);
+    void write_bytes(char* bytes, size_t size);
+
+    void write_string(const std::string& str);
 
     [[nodiscard]] inline int iov_size() const noexcept { return iov_cursor; }
 
-    iovec* iov();
+    /**
+     * Writes the current sector to the _iov at iov_cursor, dynamically resizing the _iov
+     * if necessary to fill it. This also establishes a new sector for future writes.
+     * @return true if flushed, false if nothing to flush.
+     */
+    bool flush_buffer();
+
+    iovec* finalize();
+
+    /**
+     * Resets the write buffer to its initial state by resetting the sector_start and cursor
+     * to the beginning of the buffer, and resetting the iov_cursor to 0.
+     *
+     * This is useful for reusing a write buffer for multiple writes.
+     *
+     * @note This does not free the memory allocated for the buffer, it only resets the
+     *       internal state of the buffer.
+     *
+     * @note This does not reset the internal state of the iovector, it only resets the
+     *       internal state of the buffer.
+     */
+    void reset();
 private:
     /**
      * @return Measurement of how many bytes are allocated in the byte buffer.
@@ -73,9 +107,9 @@ private:
     [[nodiscard]] inline unsigned long sector_remaining() const;
 
     /**
-     * Writes the given bytes of the given size to the iov at the current iov_cursor position.
+     * Writes the given bytes of the given size to the finalize at the current iov_cursor position.
      */
-    void write_iovector(char* bytes, size_t size);
+    void write_iov(char* bytes, int size);
 
     void ensure_capacity(size_t bytes);
     
@@ -83,15 +117,14 @@ private:
 
     void iov_resize(int size);
 
-    /**
-     * Writes the current sector to the _iov at iov_cursor, dynamically resizing the _iov
-     * if necessary to fill it. This also establishes a new sector for future writes.
-     */
-    void flush_buffer();
-
     int _iov_size;
     iovec* _iov;
     int iov_cursor;
+
+    /**
+     * Used for writing the packet length after the entire packet has been written
+     */
+    int packet_length;
 
     /**
      * Pointer to the beginning of the allocated buffer owned by this write
